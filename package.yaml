@@ -19,30 +19,122 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/githubuser/tictactoe#readme>
 
+default-extensions:
+  - Strict                      # makes strict evaluation the default. Lazy evaluation can still be used by applying the ~ annotation to whatever it is you want to thunk
+  - OverloadedStrings           # enables isString typeclass and automatic conversion between string types from [Char] -> (ByteString | Text)
+  - LambdaCase                  # enables \case syntax
+  - MultiWayIf                  # enables if | cond -> x (essentially enables cond in Haskell properly)
+  - FlexibleInstances           # Typeclass extensions
+  - FlexibleContexts            # Typeclass extensions
+  - OverloadedLists             # enables similar handling to OverloadedStrings, but allows expressing data structures as lists -> basically enables plists that turn into maps properly
+  - RankNTypes                  # enables proper quantification by removing the prenex form restriction for types (e.g.: forall m. forall a. (forall b. a -> b -> (b a -> m a)) -> a -> m a) (which is a nonsense type signature, of course))
+  - ScopedTypeVariables         # enables sane functioning of type variables as expected
+  - DeriveFoldable              # enables deriving more typeclasses
+  - DeriveFunctor               # enables deriving more typeclasses
+  - DeriveGeneric               # enables deriving more typeclasses
+  - DeriveLift                  # enables deriving more typeclasses
+  - DeriveTraversable           # enables deriving more typeclasses
+  - DerivingStrategies          # enables deriving more typeclasses
+  - GeneralizedNewtypeDeriving  # enables deriving more typeclasses
+  - MultiParamTypeClasses       # typeclasses with multiple parameters
+  - TupleSections               # enables partially applying (,) (the tuple constructor) -> ex. (, n) becomes syntactically valid and replaces \ x -> (x, n)
+  - UnboxedTuples               # unboxed anonymous structs
+  - UnboxedSums                 # unboxed anonymous tagged unions
+  - ViewPatterns                # enables use of (function -> resultpattern) type patterns such as:
+#   fn (map (+ 3) -> [4,5,6]) = ... -- this will take the argument, hand it to (map (+ 3)) then pattern match on the result
+  - NoMonomorphismRestriction   # make the compiler infer the most polymorphic possible types by default
+  - TemplateHaskell             # quasiquotation for Haskell (metaprogramming by backquote as in CL: (defmacro (x y) `(,x ,y)); main difference here is that macros are strongly and statically typed whereas in CL they tend not to be)
+  - QuasiQuotes                 # enables writing own quasiquoters
+  - GADTs                       # GADTs: enables usage of different syntax and expanded constructor/type levels stuff -> Type Inference on GADTs can be undecidable, so may break
+                                #   data constructors:
+                                #     data Term a where
+                                #       Lit    :: a -> Term a
+                                #       Succ   :: Term Int -> Term Int
+                                #       IsZero :: Term Int -> Term Bool
+                                #       If     :: Term Bool -> Term a -> Term a -> Term a
+                                #     data FileSystem r where
+                                #       ReadFile  :: FilePath -> FileSystem String
+                                #       WriteFile :: FilePath -> String -> FileSystem ()
+                                #   type equalities in function type annotations:
+                                #     f :: a -> a -> (a, a) == f :: (a ~ b) => a -> b -> (a,b) -- a ~ b means "a is the same type as b"
+  - EmptyDataDecls              # allow empty data declarations. Required for TSS to work as intended, as it allows Phantom Types the way we use them.
+  - TypeFamilies                # type-level functions (functions that map from one type to another and need not be injective or surjective); somewhat breaks type inference in some cases due to lack of injectivity (f b ~ f a may be true even when a ~ b is not)
+                                #     -> regular type inference uses the rule "forall a b. a ~ b -> forall f. f a ~ f b". Type Families mean this is no longer necessarily true.
+  - DuplicateRecordFields       # allow two record fields in the same module to have the same name. GHC will attempt to automatically deduce the correct accessor to call.
+  - TypeOperators               # operators that work on types
+
 dependencies:
-- base >= 4.7 && < 5
+  - base >= 4.7   && < 5
+  - aeson
+  - vector
+  - bytestring
+  - containers
+  - text
+  - unordered-containers
+  - optparse-applicative
+#  - random         >= 1.1   && < 2 # PRNG
+#  - mtl            >= 2.2   && < 3 # monad transformers
+#  - transformers   >= 0.5.2 && < 1 # monad transformers
+#  - vector         >= 0.12  && < 1 # C arrays, boxed/unboxed
+#  - linear         >= 1.20  && < 2 # linear algebra utilities
+#  - sdl2           >= 2.4   && < 3 # SDL2: Windowing, and general setup stuff, made OS-agnostic
+#  - classy-prelude                 # Prelude using a lot of typeclasses, allowing say `map` to be polymorphic
+#  - bytestring                     # unsigned char* for Haskell
+#  - containers                     # ordered sets and maps
+#  - stm                            # software transactional memory
+#  - text                           # validated UTF-8 std::string equivalent for Haskell
+#  - unordered-containers           # hashmaps and hashsets
+#  - filepath                       # file path handling that works on Windows and Linux and Mac
+#  - directory                      # FS handling
+#  - process                        # Subprocess handling
+#  - deepseq                        # deeply evaluate lazy expressions
+#  - optparse-applicative           # parse command line parameters
+#  - attoparsec                     # parse bytestrings fast
+#  - split                          # split lists in multiple ways
+  # - unagi-chan                     # M:N queues
+
+ghc-options:
+    - -funbox-strict-fields        # always unbox strict fields (in combination with the Strict extension this means all struct fields are unboxed by default)
+    - -fexpose-all-unfoldings      # export all symbols from every module, thus making everything inlinable
+    - -fspecialise-aggressively    # force specialization of polymorphic functions regardless of size
+    - -fexpose-all-unfoldings      # enable inlining and specialization of large and/or recursive functions
+    - -fspec-constr                # specialize recursize functions for different constructor cases
+    - -floopification              # turn tail-recursive functions into loops
+    - -flate-specialise            # run another late specialization pass. May catch more specialization opportunities.
+#    - -fllvm                      # disabled due to currently being too lazy to write a nix derivation; would use llvm instead of cc(1) and provide a moderate performance benefit
+    - -threaded                    # use the threaded runtime
+    - -rdynamic                    # expose all symbols, even if they're unused
+    - -static                      # compile statically linked libraries and executables
+    - -Wcompat                     # warn about forward compatibility
+    - -Wall                        # enable common warnings
+    - -Wno-unused-top-binds        # shut off because annoying
+    - -Wno-name-shadowing          # shut off because annoying
+    - -rtsopts
+    - -with-rtsopts=-N
 
 library:
   source-dirs: src
 
 executables:
-  tictactoe-exe:
+  tictactoe-client: # simple GUI client
     main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+    source-dirs:         client
     dependencies:
     - tictactoe
+    - servant
+    - sdl2
+    - linear
+
+  tictactoe-server:
+    main:                Main.hs
+    source-dirs:         server
+    dependencies:
+    - tictactoe
+    - servant
 
 tests:
   tictactoe-test:
     main:                Spec.hs
     source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
     dependencies:
     - tictactoe
