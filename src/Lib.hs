@@ -229,9 +229,9 @@ instance ToJSON LineCommand
 instance FromJSON LineCommand
 
 withClientCommand :: LineCommand -> (ClientCommand -> a) -> Maybe a
-withClientCommand f (Just (Left cc)) = Just $ f cc
+withClientCommand (LineCommand (Just (Left cc))) f = Just $ f cc
 withClientCommand _ _ = Nothing
 
 withServerCommand :: LineCommand -> (ServerCommand -> a) -> Maybe a
-withServerCommand f (Just (Right sc)) = Just <$> f sc
+withServerCommand (LineCommand (Just (Right sc))) f = Just $ f sc
 withServerCommand _ _ = Nothing

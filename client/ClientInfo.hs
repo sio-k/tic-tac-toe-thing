@@ -2,6 +2,7 @@
 module ClientInfo where
 
 import Lib
+import Args
 
 import SDL
 
@@ -10,9 +11,8 @@ data ClientInfo = ClientInfo { session :: ClientSession
                              , oTex :: Texture
                              } -- TODO: mutable structure containing what server we're connecting to etc.
 
-mkClientInfo :: Renderer -> IO ClientInfo
-mkClientInfo renderer = do
-  args <- getArgs
+mkClientInfo :: Renderer -> Args -> IO ClientInfo
+mkClientInfo renderer args = do
   error "TODO: get the server to connect to from args, as well as optional player id etc"
   error "TODO: connect to server, try to connect to/create a session"
   error "TODO: print session id to terminal"

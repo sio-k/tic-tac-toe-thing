@@ -6,6 +6,7 @@ import Lib
 import Input
 import FieldCoords
 import ClientInfo
+import Args
 
 import SDL
 import SDL.Video.Renderer
@@ -15,6 +16,7 @@ import Data.List
 
 main :: IO ()
 main = do
+  args <- parseArgs
   initializeAll -- init all SDL subsystems (this is probably fine)
   window <- createWindow "Tic-Tac-Toe reference client" $
               defaultWindow { windowPosition  = Centered
@@ -24,7 +26,7 @@ main = do
                              -1
                              (RendererConfig AcceleratedVSyncRenderer False)
 
-  client <- error "TODO: init servant client gunk; create session; create o and x textures"
+  client <- mkClientInfo renderer args
 
   mainLoop window renderer client
 
