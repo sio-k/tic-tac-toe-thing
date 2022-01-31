@@ -72,6 +72,7 @@ dependencies:
   - text
   - unordered-containers
   - optparse-applicative
+  - servant
 #  - random         >= 1.1   && < 2 # PRNG
 #  - mtl            >= 2.2   && < 3 # monad transformers
 #  - transformers   >= 0.5.2 && < 1 # monad transformers
@@ -117,20 +118,18 @@ library:
 
 executables:
   tictactoe-client: # simple GUI client
-    main:                Main.hs
+    main:                Client.hs
     source-dirs:         client
     dependencies:
     - tictactoe
-    - servant
     - sdl2
     - linear
 
   tictactoe-server:
-    main:                Main.hs
+    main:                Server.hs
     source-dirs:         server
     dependencies:
     - tictactoe
-    - servant
 
 tests:
   tictactoe-test:

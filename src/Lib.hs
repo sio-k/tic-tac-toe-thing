@@ -235,3 +235,5 @@ withClientCommand _ _ = Nothing
 withServerCommand :: LineCommand -> (ServerCommand -> a) -> Maybe a
 withServerCommand (LineCommand (Just (Right sc))) f = Just $ f sc
 withServerCommand _ _ = Nothing
+
+-- TODO: servant API definition?

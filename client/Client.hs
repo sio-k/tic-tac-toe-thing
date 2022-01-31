@@ -9,7 +9,7 @@ import ClientInfo
 import Args
 
 import SDL hiding (Vector)
-import SDL.Video.Renderer as Renderer hiding (Vector)
+import SDL.Video.Renderer as Renderer
 
 import Data.IORef
 
@@ -20,7 +20,6 @@ import Data.Vector as Vector hiding (sequence_, copy)
 import Foreign.C
 
 import Prelude hiding (null, head, filter, init, tail, head, last, zip, replicate, length)
-import qualified Prelude
 
 main :: IO ()
 main = do
@@ -104,9 +103,9 @@ drawMarks renderer ci fields = do
   (FrozenBoard bd) <- freezeBoard $ board $ sessionGame $ session $ ci
   let bothzipped = uncurry Vector.zip <$> Vector.zip allRects bd -- TODO: this is probably broken
   let tex X = xTex ci
-  let tex O = oTex ci
+      tex O = oTex ci
   let draw (_, Nothing) = pure ()
-  let draw (rect, (Just x)) = copy renderer (tex x) Nothing $ Just rect
+      draw (rect, (Just x)) = copy renderer (tex x) Nothing $ Just rect
   sequence_ $ sequence_ <$> (fmap draw <$> bothzipped)
 
 -- top left, 32x32px
