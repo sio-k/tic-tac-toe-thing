@@ -90,6 +90,7 @@ dependencies:
   - time
   - stm
   - stm-containers
+  - hashable
 #  - random         >= 1.1   && < 2 # PRNG
 #  - mtl            >= 2.2   && < 3 # monad transformers
 #  - transformers   >= 0.5.2 && < 1 # monad transformers

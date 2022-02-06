@@ -8,6 +8,8 @@ import Network.Wai.Handler.Warp
 import Control.Concurrent.STM
 import StmContainers.Map as M
 
+import Control.Monad.IO.Class
+
 import GHC.Word
 
 -- Server State. Individual parts are mutable in the STM (software transactional
@@ -54,18 +56,17 @@ withSessionElse :: (MonadIO m)
                 -> (TVar ServerSession -> STM (Maybe a))
                 -> m (Maybe a)
 withSessionElse s sid e f =
-  (liftIO $ atomically $ lookup sid $ sessions s)
+  (liftIO $ atomically $ M.lookup sid $ sessions s)
   >>= \case
     Nothing -> e
-    (Just x) -> atomically $ f x
+    (Just x) -> liftIO $ atomically $ f x
 
 server :: ServerState -> Server ServerAPI
 server _ Nothing = pure Nothing
 server s (Just sc) =
   case sc of
-    ServerNewSession -> fmap Just $ liftIO $
-      uncurry ClientSessionCreated
-        <$> atomically $ do
+    ServerNewSession -> fmap Just $ liftIO $ do
+      (sid, pid) <- atomically $ do
           session <-
             newTVar =<< (ServerSession
                            <$> (SessionID <$> (newID $ maxSessionID s))
@@ -74,13 +75,14 @@ server s (Just sc) =
                            <*> newTVar (Timestamp 0)
                            <*> newTVar 0
                            <*> newTVar Nothing)
-          x <- (sessionID <$> readTVar session) >>= readTVar
-          insert session x (sessions s)
-          pure (x, y)
+          (ServerSession sid pid _ _ _ _) <- readTVar session
+          insert session sid (sessions s)
+          pure (sid, pid)
+      pure $ ClientSessionCreated sid pid
 
     ServerQuerySessionStatus sid ->
-      withSession s sid $ \ x -> atomically $ case x of
-       { (ServerSession _ (Just pa) (Just pb) _) ->
+      withSession s sid $ \ x -> readTVar x >>= \case
+       { (ServerSession _ pa (Just pb) _ _ _) ->
            pure $ Just $ ClientStartSession sid pa pb
        ; _ -> pure Nothing
        }
@@ -88,10 +90,7 @@ server s (Just sc) =
     ServerJoinSession sid -> withSession s sid $ \ session -> do
       npid <- PlayerID <$> newID (maxPlayerID s)
       modifyTVar session $ \ x -> x { playerB = Just npid }
-      remotepid <- playerA <$> readTVar session
-      case remotepid of
-        Nothing -> error "FIXME: Trying to join invalid session. This indicates a server bug, wherein an invalid session was created."
-        Just r -> pure $ ClientStartSession sid npid r
+      Just <$> ClientStartSession sid npid <$> playerA <$> readTVar session
 
     ServerEndSession sid pid -> fmap Just $ liftIO $ atomically $ do
       delete sid (sessions s)
@@ -112,7 +111,7 @@ server s (Just sc) =
 
   where returnLastAction session = do
           (ServerSession _ _ _ _ lai la) <- readTVar session
-          pure $ Just $ ClientGameAction la lai
+          Just <$> (ClientGameAction <$> readTVar la <*> readTVar lai)
 
 {-
 TODO

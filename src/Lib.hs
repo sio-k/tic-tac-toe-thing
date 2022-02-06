@@ -30,6 +30,8 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
 import Control.Concurrent.STM.TVar
 
+import Data.Hashable
+
 data Field = X | O deriving (Show, Eq, Generic)
 instance ToJSON Field
 instance FromJSON Field
@@ -183,11 +185,11 @@ isJust :: Maybe a -> Bool
 isJust Nothing = False
 isJust _       = True
 
-newtype PlayerID = PlayerID Int deriving (Eq, Generic, Show)
+newtype PlayerID = PlayerID Word deriving (Eq, Generic, Show)
 instance ToJSON PlayerID
 instance FromJSON PlayerID
 
-newtype SessionID = SessionID Int deriving (Eq, Generic, Show)
+newtype SessionID = SessionID Word deriving (Eq, Generic, Show, Hashable)
 instance ToJSON SessionID
 instance FromJSON SessionID
 
@@ -197,14 +199,12 @@ data ClientSession = ClientSession { sessionID :: SessionID
                                    , localPlayerID :: PlayerID
                                    } deriving (Generic)
 
-data ServerPlayer = ServerPlayer { playerID :: PlayerID } deriving (Generic)
-
 -- NOTE: this is a time_t, it counts seconds since 1970-01-01T00:00:00 UTC
 newtype Timestamp = Timestamp Word64 deriving (Eq, Ord, Generic, Num)
 
 data ServerSession = ServerSession { sessionID :: SessionID
-                                   , playerA   :: ServerPlayer
-                                   , playerB   :: Maybe ServerPlayer
+                                   , playerA   :: PlayerID
+                                   , playerB   :: Maybe PlayerID
                                    , startTime :: TVar Timestamp
                                    , lastActionIndex :: TVar Word -- just counts up
                                    , lastAction :: TVar (Maybe Action)
