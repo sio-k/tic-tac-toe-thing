@@ -12,15 +12,23 @@ import qualified Data.Vector as Vector
 import qualified Data.Vector.Mutable as IOVec
 
 import Data.ByteString (ByteString)
-import qualified Data.HashMap.Strict as HM
+import Data.ByteString.Lazy (fromStrict, toStrict)
+-- import qualified Data.HashMap.Strict as HM
 import Data.IORef
 
-import Control.Category
 import Control.Arrow
 import Control.Monad
 
 import GHC.Generics
 import GHC.Word
+
+import Servant.API
+import Web.HttpApiData
+
+import qualified Data.Text as Text
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
+
+import Control.Concurrent.STM.TVar
 
 data Field = X | O deriving (Show, Eq, Generic)
 instance ToJSON Field
@@ -125,7 +133,7 @@ thawGame (FrozenGame fbd cfg player) =
 
 performAction :: Game -> Action -> IO ()
 performAction g Pass = endTurn g
-performAction g@(Game (Board bd) (GameConfig local size) curr) (Mark x y) =
+performAction g@(Game (Board bd) (GameConfig _ size) curr) (Mark x y) =
   if not (validateIndex size x) || not (validateIndex size y)
     then endTurn g -- invalid moves mean whoever's making the invalid move loses their turn.
     else let field = (bd ! indexToInt y) ! indexToInt x
@@ -189,39 +197,55 @@ data ClientSession = ClientSession { sessionID :: SessionID
                                    , localPlayerID :: PlayerID
                                    } deriving (Generic)
 
-data ServerPlayer = ServerPlayer { playerAddress :: ByteString
-                                 , playerID :: PlayerID
-                                 } deriving (Generic)
+data ServerPlayer = ServerPlayer { playerID :: PlayerID } deriving (Generic)
 
 -- NOTE: this is a time_t, it counts seconds since 1970-01-01T00:00:00 UTC
 newtype Timestamp = Timestamp Word64 deriving (Eq, Ord, Generic, Num)
 
 data ServerSession = ServerSession { sessionID :: SessionID
                                    , playerA   :: ServerPlayer
-                                   , playerB   :: ServerPlayer
-                                   , startTime :: Timestamp
-                                   , lastActionTime :: IORef Timestamp -- if currentTime - lastActionTime > timeout, destroy/invalidate this session
+                                   , playerB   :: Maybe ServerPlayer
+                                   , startTime :: TVar Timestamp
+                                   , lastActionIndex :: TVar Word -- just counts up
+                                   , lastAction :: TVar (Maybe Action)
+                                   -- , lastActionTime :: TVar Timestamp -- if currentTime - lastActionTime > timeout, destroy/invalidate this session
                                    } deriving (Generic)
 
 data ServerSessions = ServerSessions (IOVec.IOVector ServerSession)
 
 -- TODO: environment in which server sessions can be read/written and IO actions performed
 
+decodeToEither :: FromJSON a => Text.Text -> Either Text.Text a
+decodeToEither = encodeUtf8 >>> fromStrict >>> decode >>> maybe (Left "JSON parse error") Right
+
+encodeToText :: ToJSON a => a -> Text.Text
+encodeToText = encode >>> toStrict >>> decodeUtf8
+
 data ServerCommand = ServerNewSession -- returns sessionID and new player ID, waits for other player
+                   | ServerQuerySessionStatus SessionID -- polling on whether a session has been started yet, either answers Nothing or with ClientStartSession
                    | ServerJoinSession SessionID -- joins a player to a session and starts it
-                   | ServerStartSession SessionID PlayerID PlayerID
-                   | ServerEndSession SessionID PlayerID PlayerID -- all must match
-                   | ServerGameAction Action PlayerID -- player takes an action
+                   | ServerEndSession SessionID PlayerID -- sends own playerid; has to be correct
+                   | ServerGameAction SessionID PlayerID Action -- player takes an action
+                   | ServerQueryAction SessionID PlayerID -- query server if there's been actions taken by other player
                    deriving (Generic, Eq, Show)
 instance ToJSON ServerCommand
 instance FromJSON ServerCommand
+instance FromHttpApiData ServerCommand where
+  parseQueryParam = decodeToEither
+instance ToHttpApiData ServerCommand where
+  toQueryParam = encodeToText
 
-data ClientCommand = ClientStartSession SessionID PlayerID PlayerID
-                   | ClientEndSession SessionID PlayerID PlayerID
-                   | ClientGameAction Action -- player has taken an action
+data ClientCommand = ClientSessionCreated { sessionID :: SessionID, ownID :: PlayerID }
+                   | ClientStartSession { sessionID :: SessionID, ownID :: PlayerID, remoteID :: PlayerID }
+                   | ClientEndSession SessionID
+                   | ClientGameAction (Maybe Action) Word -- returns last action taken along with it's ID
                    deriving (Generic, Eq, Show)
 instance ToJSON ClientCommand
 instance FromJSON ClientCommand
+instance FromHttpApiData ClientCommand where
+  parseQueryParam = decodeToEither
+instance ToHttpApiData ClientCommand where
+  toQueryParam = encodeToText
 
 newtype LineCommand = LineCommand (Maybe (Either ClientCommand ServerCommand))
                     deriving (Generic, Eq, Show)
@@ -236,4 +260,5 @@ withServerCommand :: LineCommand -> (ServerCommand -> a) -> Maybe a
 withServerCommand (LineCommand (Just (Right sc))) f = Just $ f sc
 withServerCommand _ _ = Nothing
 
--- TODO: servant API definition?
+type ServerAPI = "game" :> QueryParam "cmd" ServerCommand
+                        :> Get '[JSON] (Maybe ClientCommand)

@@ -62,6 +62,7 @@ default-extensions:
                                 #     -> regular type inference uses the rule "forall a b. a ~ b -> forall f. f a ~ f b". Type Families mean this is no longer necessarily true.
   - DuplicateRecordFields       # allow two record fields in the same module to have the same name. GHC will attempt to automatically deduce the correct accessor to call.
   - TypeOperators               # operators that work on types
+  - DataKinds                   # needed for servant
 
 dependencies:
   - base >= 4.7   && < 5
@@ -73,6 +74,22 @@ dependencies:
   - unordered-containers
   - optparse-applicative
   - servant
+  - http-api-data
+  - http-client
+  - http-media
+  - http-types
+  - mtl
+  - transformers
+  - containers
+  - unordered-containers
+  - text
+  - string-conversions
+  - wai
+  - warp
+  - random
+  - time
+  - stm
+  - stm-containers
 #  - random         >= 1.1   && < 2 # PRNG
 #  - mtl            >= 2.2   && < 3 # monad transformers
 #  - transformers   >= 0.5.2 && < 1 # monad transformers
@@ -80,6 +97,7 @@ dependencies:
 #  - linear         >= 1.20  && < 2 # linear algebra utilities
 #  - sdl2           >= 2.4   && < 3 # SDL2: Windowing, and general setup stuff, made OS-agnostic
 #  - classy-prelude                 # Prelude using a lot of typeclasses, allowing say `map` to be polymorphic
+# TODO: use classy-prelude again, or something roughly equivalent (i.e. typeclassed to hell for convenience)
 #  - bytestring                     # unsigned char* for Haskell
 #  - containers                     # ordered sets and maps
 #  - stm                            # software transactional memory
@@ -130,6 +148,7 @@ executables:
     source-dirs:         server
     dependencies:
     - tictactoe
+    - servant-server
 
 tests:
   tictactoe-test:
